@@ -28,11 +28,12 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        System.out.println("🚀 Yahtzee gestartet!");
+
         gameLogic = new GameLogic();
         aiGameLogic = new GameLogic();
         aiPlayer = new AIPlayer(aiGameLogic);
 
-        // Scoreboards
         VBox playerScoreBoard = new VBox(5);
         Label playerLabel = new Label("Spieler:");
         playerLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: black; -fx-font-size: 21px;");
@@ -53,10 +54,9 @@ public class Main extends Application {
                     rollLabel.setText("Würfe übrig: 3");
                     rollButton.setDisable(false);
 
-                    // Alle Würfel abwählen
                     for (int i = 0; i < gameLogic.getDiceList().size(); i++) {
                         gameLogic.getDiceList().get(i).setHeld(false);
-                        diceImages.get(i).setStyle(""); // grünen Effekt entfernen
+                        diceImages.get(i).setStyle("");
                     }
 
                     Label kiLabel = new Label("Die KI ist dran...");
@@ -93,7 +93,6 @@ public class Main extends Application {
             aiScoreBoard.getChildren().add(label);
         }
 
-        // Würfelanzeige
         HBox diceBox = new HBox(10);
         for (Dice dice : gameLogic.getDiceList()) {
             ImageView diceView = new ImageView();
@@ -102,11 +101,9 @@ public class Main extends Application {
             diceView.setOnMouseClicked(e -> {
                 if (gameLogic.getRollsLeft() < 3) {
                     dice.toggleHold();
-                    if (dice.isHeld()) {
-                        diceView.setStyle("-fx-effect: innershadow(three-pass-box, #5fbf4a, 20, 0.5, 0, 0);");
-                    } else {
-                        diceView.setStyle("");
-                    }
+                    diceView.setStyle(dice.isHeld()
+                            ? "-fx-effect: innershadow(three-pass-box, #5fbf4a, 20, 0.5, 0, 0);"
+                            : "");
                 }
             });
             diceImages.add(diceView);
@@ -115,45 +112,47 @@ public class Main extends Application {
         diceBox.setPadding(new Insets(10));
         diceBox.setStyle("-fx-alignment: center;");
 
-        // Buttons
         rollButton = new Button("Würfeln");
         rollLabel = new Label("Würfe übrig: 3");
         rollLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px;");
-
         rollButton.setOnAction(e -> {
             gameLogic.rollDice();
             updateDiceImages();
             rollLabel.setText("Würfe übrig: " + gameLogic.getRollsLeft());
-            if (gameLogic.getRollsLeft() == 0) {
-                rollButton.setDisable(true);
-            }
+            if (gameLogic.getRollsLeft() == 0) rollButton.setDisable(true);
         });
-
 
         HBox buttonBox = new HBox(20, rollButton, rollLabel);
         buttonBox.setPadding(new Insets(10));
         buttonBox.setAlignment(Pos.CENTER);
 
-        // Hauptlayout
         HBox scoreBoards = new HBox(50, playerScoreBoard, aiScoreBoard);
         scoreBoards.setPadding(new Insets(20));
         scoreBoards.setStyle("-fx-alignment: center;");
 
         VBox root = new VBox(20, scoreBoards, diceBox, buttonBox);
         root.setPadding(new Insets(20));
-        root.setStyle("-fx-alignment: center;"); // Hintergrundfarbe hier entfernen oder weglassen
+        root.setStyle("-fx-alignment: center;");
 
-        BackgroundImage backgroundImage = new BackgroundImage(
-            new Image(getClass().getResource("/images/background.png").toExternalForm()),
-            BackgroundRepeat.NO_REPEAT,
-            BackgroundRepeat.NO_REPEAT,
-            BackgroundPosition.DEFAULT,
-            new BackgroundSize(100, 100, true, true, false, false)
-        );
-        root.setBackground(new Background(backgroundImage));
+        try {
+            Image backgroundImg = new Image(getClass().getResourceAsStream("/images/background.png"));
+            BackgroundImage backgroundImage = new BackgroundImage(
+                    backgroundImg,
+                    BackgroundRepeat.NO_REPEAT,
+                    BackgroundRepeat.NO_REPEAT,
+                    BackgroundPosition.DEFAULT,
+                    new BackgroundSize(100, 100, true, true, false, false)
+            );
+            root.setBackground(new Background(backgroundImage));
+        } catch (Exception ex) {
+            System.out.println("❌ Hintergrundbild konnte nicht geladen werden!");
+            ex.printStackTrace();
+        }
 
+        gameLogic.rollDice(); // erster Wurf
         updateDiceImages();
         updateAIScoreBoard();
+        rollLabel.setText("Würfe übrig: " + gameLogic.getRollsLeft());
 
         Scene scene = new Scene(root, 1000, 720);
         primaryStage.setScene(scene);
@@ -165,8 +164,13 @@ public class Main extends Application {
         for (int i = 0; i < gameLogic.getDiceList().size(); i++) {
             Dice dice = gameLogic.getDiceList().get(i);
             int value = dice.getValue();
-            Image img = new Image(getClass().getResourceAsStream("/images/dice_" + value + ".png"));
-            diceImages.get(i).setImage(img);
+            try {
+                Image img = new Image(getClass().getResourceAsStream("/images/dice_" + value + ".png"));
+                diceImages.get(i).setImage(img);
+            } catch (Exception e) {
+                System.out.println("❌ Fehler beim Laden von dice_" + value + ".png");
+                e.printStackTrace();
+            }
         }
     }
 
@@ -177,7 +181,7 @@ public class Main extends Application {
             String points = cat.isUsed() ? String.valueOf(cat.getPoints()) : "-";
             aiScoreLabels.get(i).setText(cat.getName() + ": " + points);
             if (cat.isUsed()) {
-            	aiScoreLabels.get(i).setStyle("-fx-text-fill: green; -fx-font-size: 21px;");
+                aiScoreLabels.get(i).setStyle("-fx-text-fill: green; -fx-font-size: 21px;");
             }
         }
     }
@@ -189,51 +193,48 @@ public class Main extends Application {
         if (playerDone && aiDone) {
             int playerTotal = calculateTotalPoints(gameLogic.getScoreCategories());
             int aiTotal = calculateTotalPoints(aiGameLogic.getScoreCategories());
-
             String winner = (playerTotal > aiTotal) ? "🎉 Du gewinnst!"
-                            : (playerTotal < aiTotal) ? "🤖 Die KI gewinnt!"
-                            : "Unentschieden!";
+                    : (playerTotal < aiTotal) ? "🤖 Die KI gewinnt!" : "Unentschieden!";
 
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Spiel beendet");
-            alert.setHeaderText("Endstand");
-            alert.setContentText("Deine Punkte: " + playerTotal +
-                                 "\nKI-Punkte: " + aiTotal +
-                                 "\n\n" + winner);
-            alert.show();
-            
-            gameLogic = new GameLogic();
-            aiGameLogic = new GameLogic();
-            aiPlayer = new AIPlayer(aiGameLogic);
+            // Erstelle Abschluss-Bildschirm
+            Label endLabel = new Label("Spiel beendet!\n\n" +
+                    "Deine Punkte: " + playerTotal + "\n" +
+                    "KI-Punkte: " + aiTotal + "\n\n" +
+                    winner);
+            endLabel.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-alignment: center;");
 
-            // Würfel + Punkte zurücksetzen
-            updateDiceImages();
-            updateAIScoreBoard();
-            rollLabel.setText("Würfe übrig: 3");
-            rollButton.setDisable(false);
-            for (ImageView iv : diceImages) {
-                iv.setOpacity(1.0);
-            }
+            Button restartButton = new Button("Neue Runde starten");
+            Button closeButton = new Button("Schließen");
 
-            // Labels aktualisieren
-            for (int i = 0; i < scoreLabels.size(); i++) {
-                ScoreCategory cat = gameLogic.getScoreCategories().get(i);
-                scoreLabels.get(i).setText(cat.getName() + ": -");
-                scoreLabels.get(i).setStyle("-fx-text-fill: black;");
-            }
+            restartButton.setOnAction(e -> {
+                Stage stage = (Stage) restartButton.getScene().getWindow();
+                Main newGame = new Main();
+                try {
+                    newGame.start(stage); // vollständiger Neustart
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
 
-            for (int i = 0; i < aiScoreLabels.size(); i++) {
-                aiScoreLabels.get(i).setText(aiGameLogic.getScoreCategories().get(i).getName() + ": -");
-                aiScoreLabels.get(i).setStyle("-fx-text-fill: black;");
-            }
+            closeButton.setOnAction(e -> {
+                ((Stage) closeButton.getScene().getWindow()).close();
+            });
+
+            HBox buttonBox = new HBox(20, restartButton, closeButton);
+            buttonBox.setAlignment(Pos.CENTER);
+
+            VBox endLayout = new VBox(30, endLabel, buttonBox);
+            endLayout.setAlignment(Pos.CENTER);
+            endLayout.setStyle("-fx-background-color: #2b2b2b; -fx-padding: 40;");
+
+            Scene endScene = new Scene(endLayout, 600, 400);
+            Stage stage = (Stage) rollButton.getScene().getWindow();
+            stage.setScene(endScene);
         }
     }
 
     private int calculateTotalPoints(List<ScoreCategory> categories) {
-        return categories.stream()
-                .filter(ScoreCategory::isUsed)
-                .mapToInt(ScoreCategory::getPoints)
-                .sum();
+        return categories.stream().filter(ScoreCategory::isUsed).mapToInt(ScoreCategory::getPoints).sum();
     }
 
     private int calculateScore(String category, List<Dice> diceList) {
@@ -244,45 +245,53 @@ public class Main extends Application {
             counts[val]++;
             sum += val;
         }
+        return switch (category) {
+            case "Einser" -> counts[1];
+            case "Zweier" -> counts[2] * 2;
+            case "Dreier" -> counts[3] * 3;
+            case "Vierer" -> counts[4] * 4;
+            case "Fünfer" -> counts[5] * 5;
+            case "Sechser" -> counts[6] * 6;
+            case "Dreierpasch" -> hasMinCount(counts, 3) ? sum : 0;
+            case "Viererpasch" -> hasMinCount(counts, 4) ? sum : 0;
+            case "Full House" -> isFullHouse(counts) ? 25 : 0;
+            case "Kleine Straße" -> hasSmallStraight(counts) ? 30 : 0;
+            case "Große Straße" -> hasLargeStraight(counts) ? 40 : 0;
+            case "Kniffel" -> hasMinCount(counts, 5) ? 50 : 0;
+            case "Chance" -> sum;
+            default -> 0;
+        };
+    }
 
-        switch (category) {
-            case "Einser": return counts[1];
-            case "Zweier": return counts[2] * 2;
-            case "Dreier": return counts[3] * 3;
-            case "Vierer": return counts[4] * 4;
-            case "Fünfer": return counts[5] * 5;
-            case "Sechser": return counts[6] * 6;
-            case "Dreierpasch":
-                for (int i = 1; i <= 6; i++) if (counts[i] >= 3) return sum;
-                return 0;
-            case "Viererpasch":
-                for (int i = 1; i <= 6; i++) if (counts[i] >= 4) return sum;
-                return 0;
-            case "Full House":
-                boolean three = false, two = false;
-                for (int i = 1; i <= 6; i++) {
-                    if (counts[i] == 3) three = true;
-                    if (counts[i] == 2) two = true;
-                }
-                return (three && two) ? 25 : 0;
-            case "Kleine Straße":
-                if ((counts[1] > 0 && counts[2] > 0 && counts[3] > 0 && counts[4] > 0) ||
-                    (counts[2] > 0 && counts[3] > 0 && counts[4] > 0 && counts[5] > 0) ||
-                    (counts[3] > 0 && counts[4] > 0 && counts[5] > 0 && counts[6] > 0)) return 30;
-                return 0;
-            case "Große Straße":
-                if ((counts[1]==1 && counts[2]==1 && counts[3]==1 && counts[4]==1 && counts[5]==1) ||
-                    (counts[2]==1 && counts[3]==1 && counts[4]==1 && counts[5]==1 && counts[6]==1)) return 40;
-                return 0;
-            case "Kniffel":
-                for (int i = 1; i <= 6; i++) if (counts[i] == 5) return 50;
-                return 0;
-            case "Chance": return sum;
-            default: return 0;
+    private boolean hasMinCount(int[] counts, int n) {
+        for (int i = 1; i <= 6; i++) {
+            if (counts[i] >= n) return true;
         }
+        return false;
+    }
+
+    private boolean isFullHouse(int[] counts) {
+        boolean three = false, two = false;
+        for (int i = 1; i <= 6; i++) {
+            if (counts[i] == 3) three = true;
+            if (counts[i] == 2) two = true;
+        }
+        return three && two;
+    }
+
+    private boolean hasSmallStraight(int[] c) {
+        return (c[1] > 0 && c[2] > 0 && c[3] > 0 && c[4] > 0) ||
+               (c[2] > 0 && c[3] > 0 && c[4] > 0 && c[5] > 0) ||
+               (c[3] > 0 && c[4] > 0 && c[5] > 0 && c[6] > 0);
+    }
+
+    private boolean hasLargeStraight(int[] c) {
+        return (c[1] == 1 && c[2] == 1 && c[3] == 1 && c[4] == 1 && c[5] == 1) ||
+               (c[2] == 1 && c[3] == 1 && c[4] == 1 && c[5] == 1 && c[6] == 1);
     }
 
     public static void main(String[] args) {
+        System.out.println("🔧 Main gestartet");
         launch(args);
     }
 }
